@@ -447,6 +447,12 @@ def main():
         errors.log('no device matches available drivers and selection criteria')
         return errors.exit_code()
 
+    return handle_devices(selected=selected, opts=opts, args=args)
+
+
+def handle_devices(*, selected, opts, args):
+    errors = _ErrorAcc()
+
     # for json
     obj_buf = []
 
