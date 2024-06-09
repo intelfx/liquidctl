@@ -77,3 +77,52 @@ extend-exclude = '''
   | (^/tests/test_smbus\.py$)
   | (^/tests/test_usb\.py$)
 '''
+
+[tool.pdm]
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=8.2.2",
+]
+[project]
+name = "liquidctl"
+description = "Cross-platform tool and drivers for liquid coolers and other devices"
+keywords = ["aio", "aquacomputer", "asus", "clc", "cli", "corsair", "cross-platform", "dram", "driver", "evga", "fan-controller", "gigabyte", "hue2", "kraken", "led-controller", "liquid-cooler", "nzxt", "power-supply", "smart-device"]
+readme = "extra/dist/pypi-readme.md"
+authors = [
+    {name = "Jonas Malaco", email = "jonas@protocubo.io"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "colorlog",
+    "crcmod==1.7",
+    "docopt",
+    "hidapi",
+    "libusb-package; sys_platform == 'win32' or sys_platform == 'cygwin'",
+    "pillow",
+    "pyusb",
+    "smbus; sys_platform == \"linux\"",
+    "winusbcdc>=1.5; sys_platform == 'win32'",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/liquidctl/liquidctl"
+Documentation = "https://github.com/liquidctl/liquidctl/blob/main/README.md"
+Changelog = "https://github.com/liquidctl/liquidctl/blob/main/CHANGELOG.md"
+Source = "https://github.com/liquidctl/liquidctl"
+
+[project.scripts]
+liquidctl = "liquidctl.cli:main"
