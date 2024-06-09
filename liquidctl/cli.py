@@ -202,7 +202,7 @@ def _list_devices_human(devices, *, using_filters, device_id, verbose, debug, **
         try:
             if dev.serial_number:
                 print(f'├── Serial number: {dev.serial_number}')
-        except:
+        except Exception:
             msg = 'could not read the serial number'
             if sys.platform.startswith('linux') and os.geteuid:
                 msg += ' (requires root privileges)'
