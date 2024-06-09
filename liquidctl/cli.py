@@ -46,6 +46,7 @@ Other interface options:
   -v, --verbose                      Output additional information
   -g, --debug                        Show debug information on stderr
   --json                             JSON output (list/initialization/status)
+  --loop <seconds>                   Repeat output continuously (status)
   --version                          Display the version number
   --help                             Show this message
 
@@ -77,9 +78,14 @@ import os
 import platform
 import re
 import sys
+import time
+import curses
 from importlib.metadata import distribution, version, PackageNotFoundError
 from numbers import Number
 from traceback import format_exception
+from typing import (
+    Generator,
+)
 
 import colorlog
 from docopt import docopt
@@ -124,6 +130,7 @@ _PARSE_ARG = {
     '--unsafe': lambda x: x.lower().split(','),
     '--verbose': bool,
     '--debug': bool,
+    '--loop': int,
 }
 
 # options that cause liquidctl.driver.find_liquidctl_devices to ommit devices
@@ -351,6 +358,17 @@ class _ErrorAcc:
         return not bool(self._errors)
 
 
+def delay_loop(*, interval: float) -> Generator[float, None, None]:
+    last = time.perf_counter()
+    while True:
+        next = last + interval
+        now = time.perf_counter()
+        yield now
+        if now < next:
+            time.sleep(next - now)
+        last = next
+
+
 def main():
     args = docopt(__doc__)
 
@@ -407,6 +425,14 @@ def main():
     if args['--json']:
         args['--verbose'] = True
 
+    # ad-hoc validation
+    # this really should be a proper argument parser with substates
+    if args['--loop']:
+        for bad_arg in ('initialize', 'list', 'set'):
+            if args[bad_arg]:
+                errors.log(f'`--loop` is not valid for `liquidctl {bad_arg}`')
+                return errors.exit_code()
+
     opts = _make_opts(args)
     filter_count = sum(1 for opt in opts if opt in _FILTER_OPTIONS)
     device_id = None
@@ -447,7 +473,31 @@ def main():
         errors.log('no device matches available drivers and selection criteria')
         return errors.exit_code()
 
-    return handle_devices(selected=selected, opts=opts, args=args)
+    if args['--loop']:
+        assert not args['initialize']
+        assert not args['set']
+        assert args['status']
+
+        term_clear = None
+        if not args['--json'] and sys.stdout.isatty():
+            curses.setupterm(None, sys.stdout.fileno())
+            term_clear = curses.tigetstr('clear')
+
+        try:
+            while True:
+                if term_clear is not None:
+                    sys.stdout.buffer.write(term_clear)
+                errors = handle_devices(selected=selected, opts=opts, args=args)
+                sys.stdout.flush()
+                if not errors.is_empty():
+                    return errors.exit_code()
+                time.sleep(opts['loop'])
+        except KeyboardInterrupt:
+            return 0
+
+    else:
+        errors = handle_devices(selected=selected, opts=opts, args=args)
+        return errors.exit_code()
 
 
 def handle_devices(*, selected, opts, args):
@@ -505,7 +555,7 @@ def handle_devices(*, selected, opts, args):
                   default=lambda x: str(x))
         print(flush=True)
 
-    return errors.exit_code()
+    return errors
 
 
 if __name__ == '__main__':
