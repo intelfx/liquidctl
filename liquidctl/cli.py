@@ -500,8 +500,10 @@ def handle_devices(*, selected, opts, args):
     if errors.is_empty() and args['--json']:
         # use __str__ for values that cannot be directly serialized to JSON
         # (e.g. enums)
-        print(json.dumps(obj_buf, ensure_ascii=(os.getenv('LANG', None) == 'C'),
-                         default=lambda x: str(x)))
+        json.dump(obj_buf, sys.stdout,
+                  ensure_ascii=(os.getenv('LANG', None) == 'C'),
+                  default=lambda x: str(x))
+        print(flush=True)
 
     return errors.exit_code()
 
