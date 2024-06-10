@@ -260,10 +260,11 @@ def _dev_status_obj(dev, status):
     }
 
 
-def _print_dev_status(dev, status):
+def _dev_status_text(dev, status):
+    lines = []
     if not status:
-        return
-    print(dev.description)
+        return None
+    lines.append(dev.description)
     tmp = []
     kcols, vcols = 0, 0
     for k, v, u in status:
@@ -280,10 +281,10 @@ def _print_dev_status(dev, status):
         vcols = max(vcols, len(v))
         tmp.append((k, v, u))
     for k, v, u in tmp[:-1]:
-        print(f'├── {k:<{kcols}}    {v:>{vcols}}  {u}')
+        lines.append(f'├── {k:<{kcols}}    {v:>{vcols}}  {u}')
     k, v, u = tmp[-1]
-    print(f'└── {k:<{kcols}}    {v:>{vcols}}  {u}')
-    print('')
+    lines.append(f'└── {k:<{kcols}}    {v:>{vcols}}  {u}')
+    return '\n'.join(lines)
 
 
 def _device_set_color(dev, args, **opts):
@@ -478,17 +479,19 @@ def main():
         assert not args['set']
         assert args['status']
 
-        term_clear = None
         if not args['--json'] and sys.stdout.isatty():
             curses.setupterm(None, sys.stdout.fileno())
             term_clear = curses.tigetstr('clear')
 
+            def show(text):
+                sys.stdout.buffer.write(term_clear)
+                print(text, flush=True)
+        else:
+            show = print
+
         try:
             while True:
-                if term_clear is not None:
-                    sys.stdout.buffer.write(term_clear)
-                errors = handle_devices(selected=selected, opts=opts, args=args)
-                sys.stdout.flush()
+                errors = handle_devices(selected=selected, opts=opts, args=args, show_fn=show)
                 if not errors.is_empty():
                     return errors.exit_code()
                 time.sleep(opts['loop'])
@@ -496,15 +499,16 @@ def main():
             return 0
 
     else:
-        errors = handle_devices(selected=selected, opts=opts, args=args)
+        errors = handle_devices(selected=selected, opts=opts, args=args, show_fn=print)
         return errors.exit_code()
 
 
-def handle_devices(*, selected, opts, args):
+def handle_devices(*, selected, opts, args, show_fn):
     errors = _ErrorAcc()
 
     # for json
     obj_buf = []
+    text_buf = []
 
     for dev in selected:
         _LOGGER.debug('device: %s', dev.description)
@@ -515,13 +519,13 @@ def handle_devices(*, selected, opts, args):
                     if args['--json']:
                         obj_buf.append(_dev_status_obj(dev, status))
                     else:
-                        _print_dev_status(dev, status)
+                        text_buf.append(_dev_status_text(dev, status))
                 elif args['status']:
                     status = dev.get_status(**opts)
                     if args['--json']:
                         obj_buf.append(_dev_status_obj(dev, status))
                     else:
-                        _print_dev_status(dev, status)
+                        text_buf.append(_dev_status_text(dev, status))
                 elif args['set'] and args['speed']:
                     _device_set_speed(dev, args, **opts)
                 elif args['set'] and args['color']:
@@ -554,6 +558,8 @@ def handle_devices(*, selected, opts, args):
                   ensure_ascii=(os.getenv('LANG', None) == 'C'),
                   default=lambda x: str(x))
         print(flush=True)
+    if not args['--json']:
+        show_fn('\n\n'.join(x for x in text_buf if x is not None))
 
     return errors
 
